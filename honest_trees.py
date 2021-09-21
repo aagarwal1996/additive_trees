@@ -8,34 +8,86 @@ from sklearn.metrics import mean_squared_error
 
 
 '''
-This python script is used to compute predictions and MSE for honest trees and forests. 
+This python script is used to compute predictions and MSE for honest trees and forests. For empty cells we use average over parent node instead. 
 
 '''
 
-def get_honest_leaf_averages(CART,X_honest,y_honest):
-    X_honest_leaf_ids = CART.apply(X_honest)
-    unique_leaf_ids = np.unique(X_honest_leaf_ids)
-    X_honest_leaf_node_ids = {k: v for k, v in enumerate(X_honest_leaf_ids)}
-    leaf_id_to_honest_av = {}
-    for leaf_id in unique_leaf_ids:
-        leaf_id_to_honest_av[leaf_id] = y_honest[[k for k,v in X_honest_leaf_node_ids.items() if v == leaf_id]].mean()
-    return leaf_id_to_honest_av
+def flatten_list(t):
+    return [item for sublist in t for item in sublist]
 
-def get_honest_tree_test_preds(CART,X_test,y_test,leaf_id_to_honest_av):
-    X_test_leaf_ids = CART.apply(X_test)
-    test_predictions = []
-    for i in range(len(X_test_leaf_ids)):
-        if(X_test_leaf_ids[i] in leaf_id_to_honest_av.keys()):
-            test_predictions.append(leaf_id_to_honest_av[X_test_leaf_ids[i]])
+
+def get_test_prediction(decision_path,node_id_to_honest_av,node_id_to_honest_count):
+    test_pred = 0.0
+    for node_id in decision_path[::-1]:
+        if node_id_to_honest_count[node_id] == 0:
+            continue
         else:
-            test_predictions.append(0.0)
-    test_predictions = np.asarray(test_predictions)
-    return test_predictions
+            test_pred = node_id_to_honest_av[node_id]
+            break
+    return test_pred
+    
+
+def get_all_decision_paths(CART,X_honest):
+    
+    '''
+    
+    This method returns 1. the decision path of each sample and 2. all node_ids used in decision paths for X_honest
+    
+    '''
+    node_indicator = CART.decision_path(X_honest)
+    leaf_id = CART.apply(X_honest)
+    sample_id_to_decision_path = {}
+    node_ids = []
+    for i in range(len(X_honest)):
+        sample_id = i 
+        node_index = node_indicator.indices[node_indicator.indptr[sample_id]:
+                                    node_indicator.indptr[sample_id + 1]]
+        sample_id_to_decision_path[i] = node_index
+        node_ids.append(node_index)
+    return sample_id_to_decision_path,np.unique(np.array(flatten_list(node_ids)))
+    
+    
+def get_honest_leaf_averages(CART,X_honest,y_honest):
+    X_honest_decsion_paths,X_honest_node_ids = get_all_decision_paths(CART,X_honest)    
+    node_id_to_honest_av = {}
+    node_id_to_honest_count = {}
+    all_node_ids = range(CART.tree_.node_count)
+    for node_id in all_node_ids:
+        if node_id in X_honest_node_ids:
+            honest_sample_ids_at_node = [sample_id for sample_id,decision_path in X_honest_decsion_paths.items() if node_id in decision_path]
+            node_id_to_honest_av[node_id] = y_honest[honest_sample_ids_at_node].mean()
+            node_id_to_honest_count[node_id] = len(honest_sample_ids_at_node)
+        else:
+            node_id_to_honest_av[node_id] = 'nan'
+            node_id_to_honest_count[node_id] = 0
+
+    return node_id_to_honest_av,node_id_to_honest_count
+
+
+
+
+
+def get_honest_tree_test_preds(CART,X_test,y_test,node_id_to_honest_av,node_id_to_honest_count):
+    X_test_decision_paths = get_all_decision_paths(CART,X_test)[0]
+    test_preds = []
+    #count = 0
+    for i in range(len(X_test_decision_paths)):
+        test_sample_decision_path = X_test_decision_paths[i]
+        test_sample_pred = get_test_prediction(test_sample_decision_path,node_id_to_honest_av,node_id_to_honest_count)
+        test_preds.append(test_sample_pred)
+        #if(X_test_leaf_ids[i] in leaf_id_to_honest_av.keys()):
+        #    test_predictions.append(leaf_id_to_honest_av[X_test_leaf_ids[i]])
+        #else:
+        #    count += 1
+        #    test_predictions.append(0.0)
+    #print(count)
+    #test_predictions = np.asarray(test_preds)
+    return test_preds
 
 def get_honest_test_MSE(CART,X_honest,y_honest,X_test,y_test):
-    leaf_id_to_honest_av = get_honest_leaf_averages(CART,X_honest,y_honest)
-    test_preds = get_honest_tree_test_preds(CART,X_test,y_test,leaf_id_to_honest_av)
-    test_MSE = mean_squared_error(y_test,test_preds)
+    node_id_to_honest_av,node_id_to_honest_count = get_honest_leaf_averages(CART,X_honest,y_honest)
+    test_preds = get_honest_tree_test_preds(CART,X_test,y_test,node_id_to_honest_av,node_id_to_honest_count)
+    test_MSE = mean_squared_error(test_preds,y_test)
     return test_MSE
 
 def get_honest_forest_test_MSE(RF,X_honest_y_honest,X_test,y_test):
