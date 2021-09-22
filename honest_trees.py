@@ -75,13 +75,6 @@ def get_honest_tree_test_preds(CART,X_test,y_test,node_id_to_honest_av,node_id_t
         test_sample_decision_path = X_test_decision_paths[i]
         test_sample_pred = get_test_prediction(test_sample_decision_path,node_id_to_honest_av,node_id_to_honest_count)
         test_preds.append(test_sample_pred)
-        #if(X_test_leaf_ids[i] in leaf_id_to_honest_av.keys()):
-        #    test_predictions.append(leaf_id_to_honest_av[X_test_leaf_ids[i]])
-        #else:
-        #    count += 1
-        #    test_predictions.append(0.0)
-    #print(count)
-    #test_predictions = np.asarray(test_preds)
     return test_preds
 
 def get_honest_test_MSE(CART,X_honest,y_honest,X_test,y_test):
