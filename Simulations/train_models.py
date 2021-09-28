@@ -49,8 +49,10 @@ def CART_CCP(X_train,y_train,X_honest,y_honest,X_test,y_test,sigma,k = 5):
 def train_all_models(X_train,y_train,X_honest,y_honest,X_test,y_test,sigma,k = 5):
     honest_CART =  CART(X_train,y_train,X_honest,y_honest,X_test,y_test,honest = True)
     dishonest_CART = CART(X_train,y_train,X_honest,y_honest,X_test,y_test,honest = False)
-    honest_CART_CCP,dishonest_CART_CCP = CART_CCP(X_train,y_train,X_honest,y_honest,X_test,y_test,sigma,k = 5)
-    return honest_CART,honest_CART_CCP,dishonest_CART,dishonest_CART_CCP
+    #honest_CART_CCP,dishonest_CART_CCP = CART_CCP(X_train,y_train,X_honest,y_honest,X_test,y_test,sigma,k = 5)
+    return honest_CART,dishonest_CART
+#,honest_CART_CCP
+#,,dishonest_CART_CCP
     
 
         
